@@ -28,6 +28,15 @@ jobs:
           name: Build JSON payload for Edge Delta
           command: |
             cat > build_payload.py \<< 'EOF'
+      
+      - run:
+          name: Send payload to Edge Delta
+          command: |
+            curl -X POST \
+            -H "Content-Type: application/json" \
+            -d @build_payload.py \
+            "http://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com"
+
 
 # Orchestrate our job run sequence
 workflows:
