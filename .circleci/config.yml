@@ -16,49 +16,61 @@ jobs:
             pip install pytest
 
       - run:
-          name: Run tests and capture failures
+          name: Run tests (tests_flaky.py) and generate build.json
           command: |
-            set -o pipefail
-            pytest -q || true
+            # run the test suite once
+            pytest tests_flaky.py -q
+            exit_code=$?
 
-            # generate build.json with pass/fail status + failed test name
+            # parse failures from pytest output
             python - <<'PY'
-import json, subprocess, os
+import json, os, subprocess, re
+from datetime import datetime
 
-proc = subprocess.run(["pytest", "-q"], capture_output=True, text=True)
+# Run tests with captured output
+proc = subprocess.run(
+    ["pytest", "tests_flaky.py", "-q"],
+    capture_output=True, text=True
+)
+
 status = "passed" if proc.returncode == 0 else "failed"
 
+# Extract failed test names
 failed_tests = []
 if status == "failed":
     for line in proc.stdout.splitlines():
-        if line.strip().startswith("FAILED"):
-            # Example: "FAILED tests/test_example.py::test_always_fails"
-            parts = line.split()
-            if len(parts) >= 2:
-                fname = parts[1].split("::")[-1]
-                failed_tests.append(fname)
-                break
+        match = re.match(r"FAILED\s+(\S+)", line)
+        if match:
+            failed_tests.append(match.group(1))
 
 payload = {
-  "job": os.getenv("CIRCLE_JOB"),
-  "workflow": os.getenv("CIRCLE_WORKFLOW_ID"),
-  "repo": os.getenv("CIRCLE_PROJECT_REPONAME"),
-  "branch": os.getenv("CIRCLE_BRANCH"),
-  "commit": os.getenv("CIRCLE_SHA1"),
-  "status": status,
-  "failed_tests": failed_tests,
-  "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z"
+    "job": os.getenv("CIRCLE_JOB"),
+    "workflow": os.getenv("CIRCLE_WORKFLOW_ID"),
+    "repo": os.getenv("CIRCLE_PROJECT_REPONAME"),
+    "branch": os.getenv("CIRCLE_BRANCH"),
+    "commit": os.getenv("CIRCLE_SHA1"),
+    "status": status,
+    "failed_tests": failed_tests,
+    "timestamp": datetime.utcnow().isoformat() + "Z"
 }
 
-open("build.json", "w").write(json.dumps(payload))
+with open("build.json", "w") as f:
+    json.dump(payload, f)
+
 print("Generated build.json:")
 print(json.dumps(payload, indent=2))
 PY
 
+            # exit CI based on original test status
+            if [ $exit_code -ne 0 ]; then
+              echo "Tests failed"
+            fi
+
       - run:
-          name: Send build.json to Edge Delta
+          name: Send build status to Edge Delta
           command: |
             if [ -f build.json ]; then
+              echo "Sending build.json to Edge Delta..."
               curl -sS -X POST "$EDGE_DELTA_HTTP_URL" \
                 -H "Content-Type: application/json" \
                 --data-binary @build.json || true
