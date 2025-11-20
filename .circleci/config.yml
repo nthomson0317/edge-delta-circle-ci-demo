@@ -1,5 +1,6 @@
 version: 2.1
 
+# Define the jobs we want to run for this project
 jobs:
   build:
     docker:
@@ -7,7 +8,6 @@ jobs:
     steps:
       - checkout
       - run: echo "this is the build job"
-
   test:
     docker:
       - image: cimg/python:3.10
@@ -28,42 +28,8 @@ jobs:
           name: Build JSON payload for Edge Delta
           command: |
             cat > build_payload.py << 'EOF'
-import json, os
-from datetime import datetime
 
-# read status from file
-status = open("test_status.txt").read().strip()
-
-payload = {
-    "circle_job": os.getenv("CIRCLE_JOB"),
-    "repo": os.getenv("CIRCLE_PROJECT_REPONAME"),
-    "branch": os.getenv("CIRCLE_BRANCH"),
-    "commit": os.getenv("CIRCLE_SHA1"),
-    "workflow_id": os.getenv("CIRCLE_WORKFLOW_ID"),
-    "status": status,
-    "timestamp": datetime.utcnow().isoformat() + "Z"
-}
-
-with open("build_payload.json", "w") as f:
-    f.write(json.dumps(payload, indent=2))
-
-print("Payload created:")
-print(json.dumps(payload, indent=2))
-EOF
-
-            python build_payload.py
-
-      - run:
-          name: Send payload to Edge Delta
-          command: |
-            if [ -f build_payload.json ]; then
-              curl -sS -X POST "$EDGE_DELTA_HTTP_URL" \
-                -H "Content-Type: application/json" \
-                --data-binary @build_payload.json || true
-            else
-              echo "No build_payload.json found"
-            fi
-
+# Orchestrate our job run sequence
 workflows:
   build_and_test:
     jobs:
