@@ -27,7 +27,7 @@ jobs:
       - run:
           name: Build JSON payload for Edge Delta
           command: |
-            cat > build_payload.py << 'EOF'
+            cat > build_payload.py \<< 'EOF'
 
 # Orchestrate our job run sequence
 workflows:
