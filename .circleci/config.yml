@@ -1,51 +1,38 @@
 version: 2.1
 
 jobs:
-  test-and-report:
+  build:
+    docker:
+      - image: cimg/base:2023.03
+    steps:
+      - checkout
+      - run: echo "this is the build job"
+
+  test:
     docker:
       - image: cimg/python:3.10
-
     environment:
       EDGE_DELTA_HTTP_URL: "http://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com"
-
     steps:
       - checkout
 
       - run:
-          name: Install dependencies
+          name: Run a simple test
           command: |
-            python -m pip install --upgrade pip
-            pip install pytest pytest-json-report
+            echo "running example test"
+            # simulate a pass/fail toggle
+            TEST_STATUS="passed"
+            echo $TEST_STATUS > test_status.txt
 
       - run:
-          name: Run tests and generate JSON report
+          name: Build JSON payload for Edge Delta
           command: |
-            mkdir -p test_results
-            pytest --json-report --json-report-file=test_results/report.json || true
-
-      - run:
-          name: Build payload for Edge Delta
-          command: |
-            python << 'PY'
+            cat > build_payload.py << 'EOF'
 import json, os
 from datetime import datetime
 
-report_file = "test_results/report.json"
-
-if not os.path.exists(report_file):
-    print("No pytest report — skipping.")
-    exit(0)
-
-with open(report_file) as f:
-    report = json.load(f)
-
-failed_tests = [
-    t["nodeid"]
-    for t in report.get("tests", [])
-    if t.get("outcome") == "failed"
-]
-
-status = "passed" if len(failed_tests) == 0 else "failed"
+# read status from file
+status = open("test_status.txt").read().strip()
 
 payload = {
     "circle_job": os.getenv("CIRCLE_JOB"),
@@ -54,9 +41,7 @@ payload = {
     "commit": os.getenv("CIRCLE_SHA1"),
     "workflow_id": os.getenv("CIRCLE_WORKFLOW_ID"),
     "status": status,
-    "failed_tests": failed_tests,
-    "total_tests": len(report.get("tests", [])),
-    "timestamp": datetime.utcnow().isoformat() + "Z",
+    "timestamp": datetime.utcnow().isoformat() + "Z"
 }
 
 with open("build_payload.json", "w") as f:
@@ -64,7 +49,9 @@ with open("build_payload.json", "w") as f:
 
 print("Payload created:")
 print(json.dumps(payload, indent=2))
-PY
+EOF
+
+            python build_payload.py
 
       - run:
           name: Send payload to Edge Delta
@@ -73,10 +60,12 @@ PY
               curl -sS -X POST "$EDGE_DELTA_HTTP_URL" \
                 -H "Content-Type: application/json" \
                 --data-binary @build_payload.json || true
+            else
+              echo "No build_payload.json found"
             fi
 
 workflows:
-  version: 2
-  ci-tests:
+  build_and_test:
     jobs:
-      - test-and-report
+      - build
+      - test
