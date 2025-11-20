@@ -42,7 +42,7 @@ with open(report_file) as f:
 failed_tests = [
     t["nodeid"]
     for t in report.get("tests", [])
-    if t["outcome"] == "failed"
+    if t.get("outcome") == "failed"
 ]
 
 status = "passed" if len(failed_tests) == 0 else "failed"
