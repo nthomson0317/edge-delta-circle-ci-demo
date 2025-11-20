@@ -1,0 +1,73 @@
+version: 2.1
+
+jobs:
+  run-tests:
+    docker:
+      - image: cimg/python:3.10
+    environment:
+      EDGE_DELTA_HTTP_URL: "http://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com"
+    steps:
+      - checkout
+
+      - run:
+          name: Install dependencies
+          command: |
+            python -m pip install --upgrade pip
+            pip install pytest
+
+      - run:
+          name: Run tests and capture failures
+          command: |
+            set -o pipefail
+            pytest -q || true
+
+            # generate build.json with pass/fail status + failed test name
+            python - <<'PY'
+import json, subprocess, os
+
+proc = subprocess.run(["pytest", "-q"], capture_output=True, text=True)
+status = "passed" if proc.returncode == 0 else "failed"
+
+failed_tests = []
+if status == "failed":
+    for line in proc.stdout.splitlines():
+        if line.strip().startswith("FAILED"):
+            # Example: "FAILED tests/test_example.py::test_always_fails"
+            parts = line.split()
+            if len(parts) >= 2:
+                fname = parts[1].split("::")[-1]
+                failed_tests.append(fname)
+                break
+
+payload = {
+  "job": os.getenv("CIRCLE_JOB"),
+  "workflow": os.getenv("CIRCLE_WORKFLOW_ID"),
+  "repo": os.getenv("CIRCLE_PROJECT_REPONAME"),
+  "branch": os.getenv("CIRCLE_BRANCH"),
+  "commit": os.getenv("CIRCLE_SHA1"),
+  "status": status,
+  "failed_tests": failed_tests,
+  "timestamp": __import__("datetime").datetime.utcnow().isoformat() + "Z"
+}
+
+open("build.json", "w").write(json.dumps(payload))
+print("Generated build.json:")
+print(json.dumps(payload, indent=2))
+PY
+
+      - run:
+          name: Send build.json to Edge Delta
+          command: |
+            if [ -f build.json ]; then
+              curl -sS -X POST "$EDGE_DELTA_HTTP_URL" \
+                -H "Content-Type: application/json" \
+                --data-binary @build.json || true
+            else
+              echo "No build.json found"
+            fi
+
+workflows:
+  version: 2
+  test_and_post:
+    jobs:
+      - run-tests
