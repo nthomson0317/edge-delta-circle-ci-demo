@@ -1,11 +1,13 @@
 version: 2.1
 
 jobs:
-  run-tests:
+  test-and-report:
     docker:
       - image: cimg/python:3.10
+
     environment:
       EDGE_DELTA_HTTP_URL: "http://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com"
+
     steps:
       - checkout
 
@@ -13,73 +15,68 @@ jobs:
           name: Install dependencies
           command: |
             python -m pip install --upgrade pip
-            pip install pytest
+            pip install pytest pytest-json-report
 
       - run:
-          name: Run tests (tests_flaky.py) and generate build.json
+          name: Run tests and generate JSON report
           command: |
-            # run the test suite once
-            pytest tests_flaky.py -q
-            exit_code=$?
+            mkdir -p test_results
+            pytest --json-report --json-report-file=test_results/report.json || true
 
-            # parse failures from pytest output
-            python - <<'PY'
-import json, os, subprocess, re
+      - run:
+          name: Build payload for Edge Delta
+          command: |
+            python << 'PY'
+import json, os
 from datetime import datetime
 
-# Run tests with captured output
-proc = subprocess.run(
-    ["pytest", "tests_flaky.py", "-q"],
-    capture_output=True, text=True
-)
+report_file = "test_results/report.json"
 
-status = "passed" if proc.returncode == 0 else "failed"
+if not os.path.exists(report_file):
+    print("No pytest report — skipping.")
+    exit(0)
 
-# Extract failed test names
-failed_tests = []
-if status == "failed":
-    for line in proc.stdout.splitlines():
-        match = re.match(r"FAILED\s+(\S+)", line)
-        if match:
-            failed_tests.append(match.group(1))
+with open(report_file) as f:
+    report = json.load(f)
+
+failed_tests = [
+    t["nodeid"]
+    for t in report.get("tests", [])
+    if t["outcome"] == "failed"
+]
+
+status = "passed" if len(failed_tests) == 0 else "failed"
 
 payload = {
-    "job": os.getenv("CIRCLE_JOB"),
-    "workflow": os.getenv("CIRCLE_WORKFLOW_ID"),
+    "circle_job": os.getenv("CIRCLE_JOB"),
     "repo": os.getenv("CIRCLE_PROJECT_REPONAME"),
     "branch": os.getenv("CIRCLE_BRANCH"),
     "commit": os.getenv("CIRCLE_SHA1"),
+    "workflow_id": os.getenv("CIRCLE_WORKFLOW_ID"),
     "status": status,
     "failed_tests": failed_tests,
-    "timestamp": datetime.utcnow().isoformat() + "Z"
+    "total_tests": len(report.get("tests", [])),
+    "timestamp": datetime.utcnow().isoformat() + "Z",
 }
 
-with open("build.json", "w") as f:
-    json.dump(payload, f)
+with open("build_payload.json", "w") as f:
+    f.write(json.dumps(payload, indent=2))
 
-print("Generated build.json:")
+print("Payload created:")
 print(json.dumps(payload, indent=2))
 PY
 
-            # exit CI based on original test status
-            if [ $exit_code -ne 0 ]; then
-              echo "Tests failed"
-            fi
-
       - run:
-          name: Send build status to Edge Delta
+          name: Send payload to Edge Delta
           command: |
-            if [ -f build.json ]; then
-              echo "Sending build.json to Edge Delta..."
+            if [ -f build_payload.json ]; then
               curl -sS -X POST "$EDGE_DELTA_HTTP_URL" \
                 -H "Content-Type: application/json" \
-                --data-binary @build.json || true
-            else
-              echo "No build.json found"
+                --data-binary @build_payload.json || true
             fi
 
 workflows:
   version: 2
-  test_and_post:
+  ci-tests:
     jobs:
-      - run-tests
+      - test-and-report
