@@ -27,7 +27,7 @@ jobs:
       - run:
           name: Test sending a simple event to Edge Delta
           command: |
-            echo '{"event":"circleci_test","status":"ok","timestamp":"'$(date -u +%FT%TZ)'"}' > test.json
+            echo '{"message":"CircleCI test event","status":"ok","timestamp":"'$(date -u +%FT%TZ)'"}' > test.json
             cat test.json
             curl -v -X POST \
               -H "Content-Type: application/json" \
