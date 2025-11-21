@@ -6,36 +6,60 @@ jobs:
       - image: cimg/base:2023.03
     steps:
       - checkout
-      - run: echo "this is the build job"
+      - run: |
+          echo "=== BUILD START ==="
+          echo "Running build step..."
+          echo "Build completed successfully."
+          echo "=== BUILD END ==="
 
   test:
     docker:
       - image: cimg/python:3.10
     environment:
-      EDGE_DELTA_HTTP_URL=https://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com
-
-
+      EDGE_DELTA_HTTP_URL: "https://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com"
     steps:
       - checkout
 
+      # Install test dependencies (pytest, etc.)
       - run:
-          name: Run a simple test
+          name: Install Test Dependencies
           command: |
-            echo "running example test"
-            TEST_STATUS="passed"
-            echo $TEST_STATUS > test_status.txt
+            pip install pytest --quiet
 
-      # *** The ONLY payload step you need ***
+      # Run real tests and capture stdout
       - run:
-          name: Send test logs to Edge Delta
+          name: Run Tests and Capture Logs
           command: |
-            for i in {1..30}; do
-            echo "sending event $i"
-            curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
-              -H "Content-Type: application/json" \
-              -d "{\"message\":\"CircleCI event #$i\",\"job\":\"test\",\"status\":\"ok\",\"i\":$i,\"timestamp\":\"$(date -u +%FT%TZ)\"}"
-            done
+            {
+              echo "=== TEST RUN START ==="
+              echo "Running pytest..."
+              python -m pytest -q || true
+              echo "Pytest exited with code $?"
+              echo "=== TEST RUN END ==="
+            } | tee /tmp/circle_logs.txt
 
+      # Generate additional synthetic logs for volume
+      - run:
+          name: Generate Additional Pipeline Logs
+          command: |
+            echo "=== SYNTHETIC LOGS START ===" >> /tmp/circle_logs.txt
+            for i in {1..100}; do
+              echo "Synthetic CircleCI log line #$i - status=ok job=demo step=step_$((i % 5))"
+            done >> /tmp/circle_logs.txt
+            echo "=== SYNTHETIC LOGS END ===" >> /tmp/circle_logs.txt
+
+      # Forward every line to Edge Delta
+      - run:
+          name: Forward All Logs to Edge Delta
+          command: |
+            while IFS= read -r line; do
+              json="{\"message\":\"$line\",\"source\":\"circleci\",\"timestamp\":\"$(date -u +%FT%TZ)\"}"
+              echo "$json" | curl -s -X POST \
+                -H "Content-Type: application/json" \
+                --data-binary @- \
+                "$EDGE_DELTA_HTTP_URL/"
+            done < /tmp/circle_logs.txt
+            echo "Done sending logs."
 
 workflows:
   build_and_test:
