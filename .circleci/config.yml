@@ -12,7 +12,8 @@ jobs:
     docker:
       - image: cimg/python:3.10
     environment:
-      EDGE_DELTA_HTTP_URL: "https://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com"
+      EDGE_DELTA_HTTP_URL: "https://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com/ingest"
+
     steps:
       - checkout
 
@@ -25,14 +26,15 @@ jobs:
 
       # *** The ONLY payload step you need ***
       - run:
-          name: Test sending a simple event to Edge Delta
+          name: Send test logs to Edge Delta
           command: |
-            echo '{"message":"CircleCI test event","status":"ok","timestamp":"'$(date -u +%FT%TZ)'"}' > test.json
-            cat test.json
-            curl -v -X POST \
+            for i in {1..30}; do
+            echo "sending event $i"
+            curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
               -H "Content-Type: application/json" \
-              -d @test.json \
-              "$EDGE_DELTA_HTTP_URL"
+              -d "{\"message\":\"CircleCI event #$i\",\"job\":\"test\",\"status\":\"ok\",\"i\":$i,\"timestamp\":\"$(date -u +%FT%TZ)\"}"
+            done
+
 
 workflows:
   build_and_test:
