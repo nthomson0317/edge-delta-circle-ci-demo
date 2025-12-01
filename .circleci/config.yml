@@ -16,7 +16,7 @@ jobs:
     docker:
       - image: cimg/python:3.10
     environment:
-      EDGE_DELTA_HTTP_URL: "https://caaecd16-2026-460e-8501-9e6563a1b2cf-http-us-west2-cf.aws.edgedelta.com"
+      EDGE_DELTA_HTTP_URL: "http://6ebf4e82-073c-426b-9f56-f9b1915c6ab1-http-us-west2-cf.aws.edgedelta.com"
     steps:
       - checkout
 
