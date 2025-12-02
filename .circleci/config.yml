@@ -1,68 +1,44 @@
 version: 2.1
 
 jobs:
-  build:
-    docker:
-      - image: cimg/base:2023.03
-    steps:
-      - checkout
-      - run: |
-          echo "=== BUILD START ==="
-          echo "Running build step..."
-          echo "Build completed successfully."
-          echo "=== BUILD END ==="
-
-  test:
+  run-tests:
     docker:
       - image: cimg/python:3.10
     environment:
       EDGE_DELTA_HTTP_URL: "http://6ebf4e82-073c-426b-9f56-f9b1915c6ab1-http-us-west2-cf.aws.edgedelta.com"
+
     steps:
       - checkout
 
-      # Install test dependencies (pytest, etc.)
       - run:
-          name: Install Test Dependencies
+          name: Install dependencies
           command: |
-            pip install pytest --quiet
+            python3 -m pip install --upgrade pip
+            pip3 install pytest
 
-      # Run real tests and capture stdout
       - run:
-          name: Run Tests and Capture Logs
+          name: Run pytest and capture output
           command: |
-            {
-              echo "=== TEST RUN START ==="
-              echo "Running pytest..."
-              python -m pytest -q || true
-              echo "Pytest exited with code $?"
-              echo "=== TEST RUN END ==="
-            } | tee /tmp/circle_logs.txt
+            # Run tests and capture console output to file for parsing
+            pytest -q --disable-warnings --maxfail=1 > pytest_output.txt 2>&1 || true
+            echo "Saved pytest output to pytest_output.txt"
 
-      # Generate additional synthetic logs for volume
       - run:
-          name: Generate Additional Pipeline Logs
+          name: Build payload
           command: |
-            echo "=== SYNTHETIC LOGS START ===" >> /tmp/circle_logs.txt
-            for i in {1..100}; do
-              echo "Synthetic CircleCI log line #$i - status=ok job=demo step=step_$((i % 5))"
-            done >> /tmp/circle_logs.txt
-            echo "=== SYNTHETIC LOGS END ===" >> /tmp/circle_logs.txt
+            python3 scripts/build_payload.py
 
-      # Forward every line to Edge Delta
       - run:
-          name: Forward All Logs to Edge Delta
+          name: Post to Edge Delta
           command: |
-            while IFS= read -r line; do
-              json="{\"message\":\"$line\",\"source\":\"circleci\",\"timestamp\":\"$(date -u +%FT%TZ)\"}"
-              echo "$json" | curl -s -X POST \
-                -H "Content-Type: application/json" \
-                --data-binary @- \
-                "$EDGE_DELTA_HTTP_URL/"
-            done < /tmp/circle_logs.txt
-            echo "Done sending logs."
+            if [ -f build.json ]; then
+              echo "Posting to $EDGE_DELTA_HTTP_URL"
+              curl -v -X POST "$EDGE_DELTA_HTTP_URL" -H "Content-Type: application/json" --data-binary @build.json || true
+            else
+              echo "No build.json found"
+            fi
 
 workflows:
   build_and_test:
     jobs:
-      - build
-      - test
+      - run-tests
