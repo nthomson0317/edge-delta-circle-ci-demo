@@ -38,7 +38,7 @@ def extract_failed_tests(pytext):
 
 def main():
     text = read_pytest_output(REPORT_FILE)
-    status = "passed" if "FAILED" not in text else "failed"
+    status = "failed" if ("FAILED" in text or "ERROR" in text) else "passed"
     failed_tests = extract_failed_tests(text)
 
     payload = {
