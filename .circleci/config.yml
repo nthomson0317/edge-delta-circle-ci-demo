@@ -72,7 +72,7 @@ jobs:
             fi
 
             # Create structured CI payload
-            cat > build.json <<EOF
+            cat > build.json << 'EOF'
             {
               "job": "${CIRCLE_JOB}",
               "repo": "edge-delta-circle-ci-demo",
