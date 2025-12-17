@@ -72,14 +72,8 @@ jobs:
           name: Forward All Logs to Edge Delta
           command: |
             while IFS= read -r line; do
-              json="{\"message\":\"$line\",\"source\":\"circleci\",\"timestamp\":\"$(date -u +%FT%TZ)\"}"
-              echo "EDGE_DELTA_HTTP_URL=$EDGE_DELTA_HTTP_URL"
-              echo "$json" | curl -s -X POST \
-                -H "Content-Type: application/json" \
-                --data-binary @- \
-                "$EDGE_DELTA_HTTP_URL"
+            curl -s -X POST -H "Content-Type: application/json" --data-binary "$line" "$EDGE_DELTA_HTTP_URL"
             done < /tmp/circle_logs.txt
-            echo "Done sending logs."
       - run:
           name: Emit CI build metadata to Edge Delta
           when: always
