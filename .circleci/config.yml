@@ -38,6 +38,38 @@ jobs:
               echo "Pytest exited with code $?"
               echo "=== TEST RUN END ==="
             } | tee /tmp/circle_logs.txt
+      - run:
+          name: Generate Demo Logs for AI Teammates
+          command: |
+            status_array=("passed" "failed" "error")
+            for i in {1..20}; do
+              job="synthetic-run-tests"
+              status=${status_array[$RANDOM % ${#status_array[@]}]}
+              failed_tests=()
+              if [ "$status" = "failed" ] || [ "$status" = "error" ]; then
+                failed_tests=("test_flaky_feature" "test_edge_case_$((RANDOM % 10))")
+              fi
+              duration=$((30 + RANDOM % 90))
+              ts=$(date -u +%FT%TZ)
+              branch="demo/ai-ci-triage"
+              commit=$(git rev-parse HEAD || echo "abcdef123456")
+              pr_url="https://github.com/nthomson0317/edge-delta-circle-ci-demo/pull/$((RANDOM % 100))"
+
+              json=$(jq -n \
+                --arg job "$job" \
+                --arg repo "edge-delta-circle-ci-demo" \
+                --arg branch "$branch" \
+                --arg commit "$commit" \
+                --arg pr_url "$pr_url" \
+                --arg status "$status" \
+                --argjson failed_tests "$(printf '%s\n' "${failed_tests[@]}" | jq -R . | jq -s .)" \
+                --arg duration "$duration" \
+                --arg ts "$ts" \
+                '{job: $job, repo: $repo, branch: $branch, commit: $commit, pr_url: $pr_url, status: $status, failed_tests: $failed_tests, duration: ($duration|tonumber), timestamp: $ts, pipeline:"nicholas_demo"}')
+
+              echo "$json" | curl -s -X POST -H "Content-Type: application/json" --data-binary @- "$EDGE_DELTA_HTTP_URL"
+            done
+            echo "Synthetic demo logs sent."
 
       # Generate additional synthetic logs for volume
       - run:
