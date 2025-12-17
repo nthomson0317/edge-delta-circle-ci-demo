@@ -72,18 +72,27 @@ jobs:
             fi
 
             # Create structured CI payload
-            cat > build.json << 'EOF'
+            cat > build.json \<< 'EOF'
             {
-              "job": "${CIRCLE_JOB}",
+              "job": "__JOB__",
               "repo": "edge-delta-circle-ci-demo",
-              "branch": "${CIRCLE_BRANCH}",
-              "commit": "${CIRCLE_SHA1}",
-              "pr_url": "${CIRCLE_PULL_REQUEST}",
-              "status": "${STATUS}",
+              "branch": "__BRANCH__",
+              "commit": "__COMMIT__",
+              "pr_url": "__PR__",
+              "status": "__STATUS__",
               "failed_tests": ["test_intentional_ci_failure"],
-              "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              "timestamp": "__TS__"
             }
             EOF
+
+            sed -i \
+              -e "s|__JOB__|$CIRCLE_JOB|g" \
+              -e "s|__BRANCH__|$CIRCLE_BRANCH|g" \
+              -e "s|__COMMIT__|$CIRCLE_SHA1|g" \
+              -e "s|__PR__|$CIRCLE_PULL_REQUEST|g" \
+              -e "s|__STATUS__|$STATUS|g" \
+              -e "s|__TS__|$(date -u +"%Y-%m-%dT%H:%M:%SZ")|g" \
+              build.json
 
             # Send to Edge Delta
             curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
