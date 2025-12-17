@@ -41,13 +41,31 @@ jobs:
 
       # Generate additional synthetic logs for volume
       - run:
-          name: Generate Additional Pipeline Logs
+          name: Generate Realistic CI Logs
           command: |
-            echo "=== SYNTHETIC LOGS START ===" >> /tmp/circle_logs.txt
-            for i in {1..100}; do
-              echo "Synthetic CircleCI log line #$i - status=ok job=demo step=step_$((i % 5))"
-            done >> /tmp/circle_logs.txt
-            echo "=== SYNTHETIC LOGS END ===" >> /tmp/circle_logs.txt
+            for job in test lint build deploy; do
+              status_array=("passed" "failed" "errored")
+              status=${status_array[$RANDOM % 3]}
+
+              failed_tests=()
+              if [ "$status" = "failed" ]; then
+                failed_tests=("test_flaky_feature" "test_edge_case_$(($RANDOM % 10))")
+              fi
+
+              json=$(jq -n \
+                --arg job "$job" \
+                --arg repo "$CIRCLE_PROJECT_REPONAME" \
+                --arg branch "$CIRCLE_BRANCH" \
+                --arg commit "$CIRCLE_SHA1" \
+                --arg pr_url "$CIRCLE_PULL_REQUEST" \
+                --arg status "$status" \
+                --argjson failed_tests "$(printf '%s\n' "${failed_tests[@]}" | jq -R . | jq -s .)" \
+                --arg ts "$(date -u +%FT%TZ)" \
+                '{job: $job, repo: $repo, branch: $branch, commit: $commit, pr_url: $pr_url, status: $status, failed_tests: $failed_tests, timestamp: $ts}')
+
+              echo "$json" | tee -a /tmp/circle_logs.txt
+            done
+
 
       # Forward every line to Edge Delta
       - run:
