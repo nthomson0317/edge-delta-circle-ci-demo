@@ -96,6 +96,13 @@ jobs:
                 '{job: $job, repo: $repo, branch: $branch, commit: $commit, pr_url: $pr_url, status: $status, failed_tests: $failed_tests, timestamp: $ts}')
 
               echo "$json" | tee -a /tmp/circle_logs.txt
+              echo "npm ERR! code ETIMEDOUT"
+              echo "npm ERR! network request to https://registry.npmjs.org failed, reason: connect ETIMEDOUT"
+              echo '{"source":"network","service":"npm-registry","error":"connection timeout","region":"us-west","severity":"warning"}'
+              echo "Outbound HTTP requests to registry.npmjs.org exceeding p95 latency"
+
+
+
             done
 
 
@@ -144,6 +151,26 @@ jobs:
             curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
               -H "Content-Type: application/json" \
               -d @build.json
+      - run:
+          name: Emit structured build metadata (npm timeout example)
+          when: always
+          command: |
+            cat << 'EOF' > build_stage_event.json
+            {
+              "job": "build",
+              "repo": "edge-delta-circle-ci-demo",
+              "stage": "install",
+              "tool": "npm",
+              "error_type": "timeout",
+              "error_code": "ETIMEDOUT",
+              "ci_url": "${CIRCLE_BUILD_URL}",
+              "timestamp": "$(date -u +%FT%TZ)"
+            }
+            EOF
+
+            curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
+              -H "Content-Type: application/json" \
+              -d @build_stage_event.json
 
 
 
