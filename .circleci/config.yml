@@ -104,15 +104,21 @@ jobs:
 
 
             done
-
-
-      # Forward every line to Edge Delta
       - run:
-          name: Forward All Logs to Edge Delta
+          name: Simulate npm timeout failure
           command: |
-            while IFS= read -r line; do
-            curl -s -X POST -H "Content-Type: application/json" --data-binary "$line" "$EDGE_DELTA_HTTP_URL"
-            done < /tmp/circle_logs.txt
+            echo "npm ERR! code ETIMEDOUT"
+            echo "npm ERR! network request to https://registry.npmjs.org failed, reason: connect ETIMEDOUT"
+            exit 1
+        
+
+            # Forward every line to Edge Delta
+            - run:
+                name: Forward All Logs to Edge Delta
+                command: |
+                  while IFS= read -r line; do
+                  curl -s -X POST -H "Content-Type: application/json" --data-binary "$line" "$EDGE_DELTA_HTTP_URL"
+                  done < /tmp/circle_logs.txt
       - run:
           name: Emit CI build metadata to Edge Delta
           when: always
