@@ -161,7 +161,7 @@ jobs:
           name: Emit structured build metadata (npm timeout example)
           when: always
           command: |
-            cat << 'EOF' > build_stage_event.json
+            cat \<< 'EOF' > build_stage_event.json
             {
               "job": "build",
               "repo": "edge-delta-circle-ci-demo",
