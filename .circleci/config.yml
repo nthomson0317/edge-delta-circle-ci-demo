@@ -17,6 +17,7 @@ jobs:
       - image: cimg/python:3.10
         environment:
           EDGE_DELTA_HTTP_URL: https://6ebf4e82-073c-426b-9f56-f9b1915c6ab1-http-us-west2-cf.aws.edgedelta.com
+          PYTHONPATH: /home/circleci/project
 
     steps:
       - checkout
@@ -28,7 +29,6 @@ jobs:
           name: Install Test Dependencies
           command: |
             python -m pip install --upgrade pip
-            pip install pytest
             pip install pytest --quiet
 
       - run:
@@ -40,7 +40,6 @@ jobs:
           command: |
             set -euo pipefail
             pytest -q --maxfail=1 --durations=25 --junitxml=test-results/pytest/pytest.xml
-          when: always
 
       - store_test_results:
           path: test-results
@@ -211,9 +210,7 @@ jobs:
             curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
               -H "Content-Type: application/json" \
               -d @build_stage_event.json
-      - run:
-          name: Set PYTHONPATH
-          command: export PYTHONPATH=$PYTHONPATH:$CIRCLE_WORKING_DIRECTORY
+
 
 
 
