@@ -12,7 +12,7 @@ jobs:
           echo "Build completed successfully."
           echo "=== BUILD END ==="
 
-test:
+  test:
     docker:
       - image: cimg/python:3.10
         environment:
@@ -20,7 +20,7 @@ test:
 
     steps:
       - checkout
-
+      
       - run:
           name: Install Test Dependencies
           command: pip install pytest --quiet
@@ -38,12 +38,11 @@ test:
 
       - store_test_results:
           path: test-results
-          when: always
 
       - store_artifacts:
           path: test-results
           destination: test-results
-          when: always
+
           
       - run:
           name: Run flaky test (intentional)
