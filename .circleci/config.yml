@@ -20,7 +20,10 @@ jobs:
 
     steps:
       - checkout
-      
+      - run:
+          name: Install project package
+          command: pip install -e .
+
       - run:
           name: Install Test Dependencies
           command: pip install pytest --quiet
@@ -205,6 +208,9 @@ jobs:
             curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
               -H "Content-Type: application/json" \
               -d @build_stage_event.json
+      - run:
+          name: Set PYTHONPATH
+          command: export PYTHONPATH=$PYTHONPATH:$CIRCLE_WORKING_DIRECTORY
 
 
 
