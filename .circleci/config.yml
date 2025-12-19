@@ -12,7 +12,7 @@ jobs:
           echo "Build completed successfully."
           echo "=== BUILD END ==="
 
-  test:
+test:
     docker:
       - image: cimg/python:3.10
         environment:
@@ -28,17 +28,32 @@ jobs:
             pip install pytest --quiet
 
       # Run real tests and capture stdout
+       # Create test results directory
       - run:
-          name: Run Tests and Capture Logs
+          name: Create test results directory
+          command: mkdir -p test-results/pytest
+
+      # Run pytest with JUnit XML output
+
+      - run:
+          name: Run pytest with JUnit XML
           command: |
-            {
-              echo "=== TEST RUN START ==="
-              echo "Running pytest..."
-              python -m pytest -q || true
-              echo "Pytest exited with code $?"
-              echo "=== TEST RUN END ==="
-            } | tee /tmp/circle_logs.txt
-            # Run intentionally flaky test
+            set -euo pipefail
+            pytest -q --maxfail=1 --durations=25 --junitxml=test-results/pytest/pytest.xml
+          when: always
+
+# Store JUnit results so CircleCI ingests them
+
+          path: test-results
+          when: always
+
+# Store artifacts for triage / AI Teammates
+
+      - store_artifacts:
+          path: test-results
+          destination: test-results
+          when: always
+
       - run:
           name: Run flaky test (intentional)
           command: |
@@ -135,12 +150,13 @@ jobs:
         
 
             # Forward every line to Edge Delta
-            - run:
-                name: Forward All Logs to Edge Delta
-                command: |
-                  while IFS= read -r line; do
-                  curl -s -X POST -H "Content-Type: application/json" --data-binary "$line" "$EDGE_DELTA_HTTP_URL"
-                  done < /tmp/circle_logs.txt
+      - run:
+          name: Forward All Logs to Edge Delta
+          command: |
+              while IFS= read -r line; do
+              curl -s -X POST -H "Content-Type: application/json" --data-binary "$line" "$EDGE_DELTA_HTTP_URL"
+              done < /tmp/circle_logs.txt
+
       - run:
           name: Emit CI build metadata to Edge Delta
           when: always
