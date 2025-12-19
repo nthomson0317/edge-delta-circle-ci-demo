@@ -21,19 +21,13 @@ test:
     steps:
       - checkout
 
-      # Install test dependencies (pytest, etc.)
       - run:
           name: Install Test Dependencies
-          command: |
-            pip install pytest --quiet
+          command: pip install pytest --quiet
 
-      # Run real tests and capture stdout
-       # Create test results directory
       - run:
           name: Create test results directory
           command: mkdir -p test-results/pytest
-
-      # Run pytest with JUnit XML output
 
       - run:
           name: Run pytest with JUnit XML
@@ -42,18 +36,15 @@ test:
             pytest -q --maxfail=1 --durations=25 --junitxml=test-results/pytest/pytest.xml
           when: always
 
-# Store JUnit results so CircleCI ingests them
-
+      - store_test_results:
           path: test-results
           when: always
-
-# Store artifacts for triage / AI Teammates
 
       - store_artifacts:
           path: test-results
           destination: test-results
           when: always
-
+          
       - run:
           name: Run flaky test (intentional)
           command: |
