@@ -26,7 +26,10 @@ jobs:
 
       - run:
           name: Install Test Dependencies
-          command: pip install pytest --quiet
+          command: |
+            python -m pip install --upgrade pip
+            pip install pytest
+            pip install pytest --quiet
 
       - run:
           name: Create test results directory
