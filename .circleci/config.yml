@@ -38,6 +38,28 @@ jobs:
               echo "Pytest exited with code $?"
               echo "=== TEST RUN END ==="
             } | tee /tmp/circle_logs.txt
+            # Run intentionally flaky test
+      - run:
+          name: Run flaky test (intentional)
+          command: |
+            echo "=== FLAKY TEST START ==="
+            python app/flaky-test.py || echo "Flaky test failed (expected intermittently)"
+            echo "=== FLAKY TEST END ==="
+      - run:
+          name: Emit flaky test failure event to Edge Delta
+          when: always
+          command: |
+            echo '{
+              "repo": "edge-delta-circle-ci-demo",
+              "test_name": "test_payment_timeout",
+              "status": "failed",
+              "job": "test",
+              "timestamp": "'$(date -u +%FT%TZ)'"
+            }' | curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
+                -H "Content-Type: application/json" \
+                -d @-
+
+
       - run:
           name: Generate Demo Logs for AI Teammates
           command: |
