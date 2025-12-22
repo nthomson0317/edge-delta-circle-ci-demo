@@ -14,17 +14,22 @@ jobs:
   canary_deploy:
     docker:
       - image: cimg/python:3.10
+    environment:
+      PYTHONPATH: /home/circleci/project
     steps:
       - checkout
+      - run:
+          name: Install Project Package
+          command: pip install -e .
       - run:
           name: Trigger Canary
           command: |
             echo "Starting canary deployment..."
-            # Simulate canary pods starting
             echo '{"canary":"start"}' > canary_event.json
       - run:
           name: Evaluate Canary Rollout
           command: python app/canary_rollout.py
+
 
 
 
@@ -234,5 +239,10 @@ workflows:
   build_and_test:
     jobs:
       - build
-      - test
-      - canary_deploy
+      - test:
+          requires:
+            - build
+      - canary_deploy:
+          requires:
+            - build
+
