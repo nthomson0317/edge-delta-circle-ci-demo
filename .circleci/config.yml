@@ -16,23 +16,19 @@ jobs:
       - image: cimg/python:3.10
     environment:
       PYTHONPATH: /home/circleci/project
-      EDGE_DELTA_HTTP_URL: https://6ebf4e82-073c-426b-9f56-f9b1915c6ab1-http-us-west2-cf.aws.edgedelta.com
     steps:
       - checkout
+
       - run:
-          name: Install Project Package
-          command: pip install -e .
-      - run:
-          name: Trigger Canary
+          name: Install dependencies
           command: |
-            echo "Starting canary deployment..."
-            echo '{"canary":"start"}' > canary_event.json
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+
       - run:
           name: Send Canary Metrics to Edge Delta
           command: python app/canary_metrics.py
-      - run:
-          name: Evaluate Canary Rollout
-          command: python app/canary_rollout.py
+
 
 
 
