@@ -4,6 +4,7 @@ import random
 import os
 from datetime import datetime
 import json
+import requests
 
 EDGE_DELTA_HTTP_URL = os.environ.get("EDGE_DELTA_HTTP_URL")
 
