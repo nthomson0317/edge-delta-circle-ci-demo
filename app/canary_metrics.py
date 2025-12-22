@@ -30,16 +30,25 @@ payload = {
     },
     "timestamp": datetime.utcnow().isoformat() + "Z"
 }
-
+# Emit simulated canary HTTP request logs with latency + status
 logs = [
-    {"pod": "canary-1", "msg": "request succeeded", "timestamp": datetime.utcnow().isoformat()},
-    {"pod": "canary-2", "msg": "request failed", "timestamp": datetime.utcnow().isoformat()},
+    {
+        "message": "request completed",
+        "service.name": "http-80",
+        "ed.tag": "nicholas_demo",
+        "http.status_code": random.choice([200, 200, 200, 500]),
+        "duration_ms": random.randint(80, 450),
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+    for _ in range(50)
 ]
 
 for log in logs:
-    # Include the same tags for logs if desired
-    log["tags"] = {"service.name": "http-80", "ed.tag": "nicholas_demo"}
-    requests.post(EDGE_DELTA_HTTP_URL, headers={"Content-Type": "application/json"}, data=json.dumps(log))
+    requests.post(
+        EDGE_DELTA_HTTP_URL,
+        headers={"Content-Type": "application/json"},
+        data=json.dumps(log)
+    )
 
 response = requests.post(EDGE_DELTA_HTTP_URL, json=payload)
 print("Sent metrics to Edge Delta:", response.status_code)
