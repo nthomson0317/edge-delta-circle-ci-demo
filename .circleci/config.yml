@@ -22,6 +22,10 @@ jobs:
             echo "Starting canary deployment..."
             # Simulate canary pods starting
             echo '{"canary":"start"}' > canary_event.json
+      - run:
+          name: Evaluate Canary Rollout
+          command: python app/canary_rollout.py
+
 
 
   test:
