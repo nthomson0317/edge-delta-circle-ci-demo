@@ -24,6 +24,10 @@ payload = {
     "branch": "demo/ai-ci-triage",
     "canary_metrics": canary,
     "baseline_metrics": baseline,
+    "tags": {
+        "service.name": "http-80",
+        "ed.tag": "nicholas_demo"
+    },
     "timestamp": datetime.utcnow().isoformat() + "Z"
 }
 
@@ -33,10 +37,9 @@ logs = [
 ]
 
 for log in logs:
+    # Include the same tags for logs if desired
+    log["tags"] = {"service.name": "http-80", "ed.tag": "nicholas_demo"}
     requests.post(EDGE_DELTA_HTTP_URL, headers={"Content-Type": "application/json"}, data=json.dumps(log))
 
 response = requests.post(EDGE_DELTA_HTTP_URL, json=payload)
 print("Sent metrics to Edge Delta:", response.status_code)
-
-
-
