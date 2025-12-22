@@ -11,6 +11,18 @@ jobs:
           echo "Running build step..."
           echo "Build completed successfully."
           echo "=== BUILD END ==="
+  canary_deploy:
+    docker:
+      - image: cimg/python:3.10
+    steps:
+      - checkout
+      - run:
+          name: Trigger Canary
+          command: |
+            echo "Starting canary deployment..."
+            # Simulate canary pods starting
+            echo '{"canary":"start"}' > canary_event.json
+
 
   test:
     docker:
@@ -219,3 +231,4 @@ workflows:
     jobs:
       - build
       - test
+      - canary_deploy
