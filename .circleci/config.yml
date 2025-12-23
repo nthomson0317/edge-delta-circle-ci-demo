@@ -28,11 +28,49 @@ jobs:
       - run:
           name: Send Canary Metrics to Edge Delta
           command: python app/canary_metrics.py
+  canary-probe:
+    docker:
+      - image: cimg/python:3.10.16
+    resource_class: small
+    steps:
+      - checkout
 
+      - restore_cache:
+          keys:
+            - v1-venv-{{ arch }}-{{ .Branch }}-{{ checksum "requirements.txt" }}
+            - v1-venv-
 
+      - run:
+          name: Set up Python and install dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            if [ -f requirements.txt ]; then
+              pip install -r requirements.txt
+            fi
 
+      - save_cache:
+          key: v1-venv-{{ arch }}-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - venv
 
-
+      - run:
+          name: Run canary probe
+          environment:
+            ED_CANARY_URL: "${ED_CANARY_URL}"
+            ED_CANARY_METHOD: "${ED_CANARY_METHOD}"
+            ED_CANARY_EXPECTED_STATUS: "${ED_CANARY_EXPECTED_STATUS}"
+            ED_CANARY_SEARCH_TEXT: "${ED_CANARY_SEARCH_TEXT}"
+            ED_CANARY_TIMEOUT: "${ED_CANARY_TIMEOUT}"
+            ED_CANARY_RETRIES: "${ED_CANARY_RETRIES}"
+            ED_CANARY_RETRY_BACKOFF: "${ED_CANARY_RETRY_BACKOFF}"
+            ED_CANARY_HEADERS: "${ED_CANARY_HEADERS}"
+            ED_CANARY_BODY: "${ED_CANARY_BODY}"
+            ED_CANARY_JSON: "${ED_CANARY_JSON}"
+          command: |
+            . venv/bin/activate
+            python scripts/canary_probe.py
 
   test:
     docker:
@@ -246,4 +284,12 @@ workflows:
       - canary_deploy:
           requires:
             - build
+      - canary-probe:
+          filters:
+            branches:
+              only:
+                - main
+                - demo/canary
+                - feat/ed-canary-probe
+
 
