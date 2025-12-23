@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: cimg/python:3.11.9
+      - image: cimg/python:3.10
     steps:
       - checkout
       - run: |
@@ -13,7 +13,7 @@ jobs:
           echo "=== BUILD END ==="
   canary_deploy:
     docker:
-      - image: cimg/python:3.11.9
+      - image: cimg/python:3.10
 
     environment:
       PYTHONPATH: /home/circleci/project
@@ -31,7 +31,7 @@ jobs:
           command: python app/canary_metrics.py
   canary_probe:
     docker:
-      - image: cimg/python:3.11.9
+      - image: cimg/python:3.10
     environment:
       EDGE_DELTA_HTTP_URL: https://6ebf4e82-073c-426b-9f56-f9b1915c6ab1-http-us-west2-cf.aws.edgedelta.com
       DEPLOYMENT_VARIANT: "canary"
@@ -93,8 +93,7 @@ jobs:
 
   test:
     docker:
-      - image: cimg/python:3.11.9
-
+      - image: cimg/python:3.10
         environment:
           EDGE_DELTA_HTTP_URL: https://6ebf4e82-073c-426b-9f56-f9b1915c6ab1-http-us-west2-cf.aws.edgedelta.com
           PYTHONPATH: /home/circleci/project
