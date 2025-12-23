@@ -94,3 +94,14 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+payload = {
+    "event_type": "canary_probe",
+    "deployment.variant": os.getenv("DEPLOYMENT_VARIANT", "unknown"),
+    "url": url,
+    "status_code": status,
+    "latency_ms": int(resp.elapsed.total_seconds() * 1000),
+    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+}
+
+requests.post(os.getenv("EDGE_DELTA_HTTP_URL"), json=payload, timeout=3)

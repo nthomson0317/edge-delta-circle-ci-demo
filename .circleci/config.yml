@@ -28,9 +28,12 @@ jobs:
       - run:
           name: Send Canary Metrics to Edge Delta
           command: python app/canary_metrics.py
-  canary-probe:
+  canary_probe:
     docker:
       - image: cimg/python:3.10.16
+    environment:
+      EDGE_DELTA_HTTP_URL: https://6ebf4e82-073c-426b-9f56-f9b1915c6ab1-http-us-west2-cf.aws.edgedelta.com
+      DEPLOYMENT_VARIANT: "canary"
     resource_class: small
     steps:
       - checkout
@@ -49,11 +52,26 @@ jobs:
             if [ -f requirements.txt ]; then
               pip install -r requirements.txt
             fi
-
+      - run:
+          name: Emit canary deployment event
+          command: |
+            curl -s -X POST "$EDGE_DELTA_HTTP_URL" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "event_type": "deployment",
+                "repo": "edge-delta-circle-ci-demo",
+                "branch": "'"$CIRCLE_BRANCH"'",
+                "deployment.variant": "canary",
+                "deployment.strategy": "canary",
+                "source": "circleci",
+                "timestamp": "'"$(date -u +%FT%TZ)"'"
+              }'
+      
       - save_cache:
           key: v1-venv-{{ arch }}-{{ .Branch }}-{{ checksum "requirements.txt" }}
           paths:
             - venv
+
 
       - run:
           name: Run canary probe
@@ -284,7 +302,8 @@ workflows:
       - canary_deploy:
           requires:
             - build
-      - canary-probe:
+            - canary_probe
+      - canary_probe:
           filters:
             branches:
               only:
